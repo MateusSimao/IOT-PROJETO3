@@ -8,7 +8,7 @@
 #include <SPI.h>
 #include <UIPEthernet.h>
 #include <utility/logging.h>
-#include <RestClient.h>
+#include <ArduinoHttpClient.h>
 
 const int portaBotao = 25;
 int estadoBotao = 0;
@@ -37,20 +37,22 @@ byte colPins [COLS] = {8, 7, 6};
 Keypad keypad = Keypad (makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 // ==========================================================
-const byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xF1, 0x77 };
+const byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xF0, 0x63 };
 EthernetClient ethclient;
 
-RestClient client = RestClient("192.168.3.41", 3000, ethclient);
+HttpClient client = HttpClient(ethclient, "192.168.3.186", 3000);
 
-#define SMS_TWILIO_SID "TWILIO_SID"
-#define SMS_TWILIO_TOKEN "TWILIO_TOKEN"
-#define SMS_PHONE_TO "1234567890"
-#define SMS_PHONE_FROM "1234567890"
-#define SMS_MESSAGE "Mensagem Legal"
+#define SMS_TWILIO_SID "AC7121489aa65cc8895b12288707816da0"
+#define SMS_TWILIO_TOKEN "e2b140cc76f17c5dedb1784b0b2c81e7"
+#define SMS_PHONE_TO "5511991664593"
+#define SMS_PHONE_FROM "16317214840"
+#define SMS_MESSAGE "Invasor detectado, sua casa foi invadida"
+
+#define CONTENT_TYPE "application/x-www-form-urlencoded"
 
 const char* parametros = "sid=" SMS_TWILIO_SID "&token=" SMS_TWILIO_TOKEN "&to=" SMS_PHONE_TO "&from=" SMS_PHONE_FROM "&body=" SMS_MESSAGE;
 
-#define RESPONSE_SIZE 30
+#define RESPONSE_SIZE 60
 char response[RESPONSE_SIZE] = {};
 // ==========================================================
 
@@ -61,6 +63,7 @@ unsigned long tempoInicial = 0;
 String senhaDigitada;
 bool digitandoSenha = false;
 String senha = "123456";
+int internet = 0;
 
 void verificaBotao()
 {
@@ -73,20 +76,21 @@ void verificaBotao()
       estadoBotao = 1;
       estadoAlarme = 1;
       delay(300);
-    } else if (estadoBotao == 1) {
-      Serial.println("Alarme desligado");
-      lcd.clear();
-      lcd.print("Destravado");
-      
-      estadoBotao = 0;
-      estadoAlarme = 0;
-      presencaDetectada = 0;
-      invasorDetectado = 0;
-      tempoInicial = 0;
-      
-      delay(300);
-    }
+    } 
   }
+}
+
+void enviarSMS() {
+  Serial.println(parametros);
+  client.post("/sms", CONTENT_TYPE, parametros);
+
+  int statusCode = client.responseStatusCode();
+  Serial.print("Status da resposta: ");
+  Serial.println(statusCode);
+
+  String response = client.responseBody();
+  Serial.print("Resposta do servidor: ");
+  Serial.println(response);
 }
 
 void verificaPresenca()
@@ -107,6 +111,11 @@ void ativaSensor()
 void setup()
 {
   Serial.begin(9600);
+  if(Ethernet.begin(mac)) {
+    Serial.println("Conectado via DHCP");
+    Serial.print("IP recebido:"); Serial.println(Ethernet.localIP());
+    internet = 1;
+  }
   lcd.begin(16,2);
   pinMode(portaBotao, INPUT);
   pinMode(portaBuzzer, OUTPUT);
@@ -126,12 +135,17 @@ void loop()
     }
       if (now - tempoInicial >= 15000 && invasorDetectado == 0) {
         Serial.println("Invasor detectado");
+        tone(portaBuzzer, 3000);
+        if (internet == 1) {
+          enviarSMS();  
+        }
         invasorDetectado = 1;
       }
   }
 
   if (invasorDetectado == 1) {
     Serial.println("Soa o alarme");
+    
     tone(portaBuzzer, 3000);
   } else {
     noTone(portaBuzzer);
