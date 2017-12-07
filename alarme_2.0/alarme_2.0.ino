@@ -42,8 +42,8 @@ EthernetClient ethclient;
 
 HttpClient client = HttpClient(ethclient, "192.168.3.186", 3000);
 
-#define SMS_TWILIO_SID "AC7121489aa65cc8895b12288707816da0"
-#define SMS_TWILIO_TOKEN "e2b140cc76f17c5dedb1784b0b2c81e7"
+#define SMS_TWILIO_SID ""
+#define SMS_TWILIO_TOKEN ""
 #define SMS_PHONE_TO "5511991664593"
 #define SMS_PHONE_FROM "16317214840"
 #define SMS_MESSAGE "Invasor detectado, sua casa foi invadida"
